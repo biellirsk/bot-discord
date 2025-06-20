@@ -122,8 +122,9 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
 
     conn = connect_db()
     cursor = conn.cursor()
+    # MODIFICADO: Agora seleciona o ID também
     cursor.execute('''
-        SELECT data, pontuacao, erros, observacao
+        SELECT id, data, pontuacao, erros, observacao
         FROM desempenho_logs
         WHERE user_id = ?
         ORDER BY id DESC
@@ -143,8 +144,10 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
     )
 
     for log in reversed(logs):
-        data, pontuacao, erros, observacao = log
-        log_text = f"**Data:** {data}\n"
+        # MODIFICADO: Agora extrai o ID também
+        log_id, data, pontuacao, erros, observacao = log
+        # MODIFICADO: Adiciona o ID na exibição
+        log_text = f"**ID:** {log_id}\n**Data:** {data}\n"
         if pontuacao is not None:
             log_text += f"**Pontuação:** {pontuacao}\n"
         if erros is not None:
@@ -157,6 +160,37 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
 
     embed.set_footer(text=f"Solicitado por: {ctx.author.display_name}")
     await ctx.send(embed=embed)
+
+
+@bot.command(name='apagar_log', help='Apaga um log de desempenho específico. Requer o ID do log. Ex: !apagar_log 123')
+@commands.has_permissions(manage_messages=True) # Exemplo: apenas quem pode gerenciar mensagens pode apagar logs
+async def apagar_log(ctx, log_id: int):
+    """
+    Apaga um log de desempenho do banco de dados pelo seu ID.
+    Apenas usuários com permissão de 'Gerenciar Mensagens' podem usar este comando.
+    """
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute('DELETE FROM desempenho_logs WHERE id = ?', (log_id,))
+    conn.commit()
+    rows_deleted = cursor.rowcount # Verifica quantas linhas foram afetadas
+    conn.close()
+
+    if rows_deleted > 0:
+        embed = discord.Embed(
+            title="Log Apagado!",
+            description=f"O log com ID `{log_id}` foi removido com sucesso.",
+            color=discord.Color.green()
+        )
+        await ctx.send(embed=embed)
+    else:
+        embed = discord.Embed(
+            title="Erro ao Apagar Log",
+            description=f"Não foi encontrado nenhum log com o ID `{log_id}`.",
+            color=discord.Color.red()
+        )
+        await ctx.send(embed=embed)
 
 
 # --- 6. Iniciar o Bot ---
