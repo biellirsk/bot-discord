@@ -30,7 +30,6 @@ def create_table():
             username TEXT NOT NULL,
             data TEXT NOT NULL,
             pontuacao INTEGER,
-            erros INTEGER,
             observacao TEXT
         )
     ''')
@@ -53,14 +52,13 @@ async def ping(ctx):
 async def hello(ctx):
     await ctx.send(f'Olá, {ctx.author.display_name}!')
 
-@bot.command(name='logar', help='Registra o desempenho de um jogador. Ex: !logar @JogadorX pontuacao:9 erros:2 Observacao:Jogou muito bem!')
+@bot.command(name='logar', help='Registra o desempenho de um jogador. Ex: !logar @JogadorX pontuacao:9 Observacao:Jogou muito bem!')
 async def logar_desempenho(ctx, membro: discord.Member, *, args):
     user_id = membro.id
     username = membro.display_name
     data = datetime.date.today().strftime("%Y-%m-%d")
 
     pontuacao = None
-    erros = None
     observacao = ""
 
     # Analisar os argumentos (pontuacao:X erros:Y Observacao:Z)
@@ -72,12 +70,6 @@ async def logar_desempenho(ctx, membro: discord.Member, *, args):
             except ValueError:
                 await ctx.send("Pontuação inválida. Use um número inteiro (ex: pontuacao:9).")
                 return
-        elif part.lower().startswith("erros:"):
-            try:
-                erros = int(part.split(":")[1])
-            except ValueError:
-                await ctx.send("Número de erros inválido. Use um número inteiro (ex: erros:2).")
-                return
         elif part.lower().startswith("observacao:"):
             observacao = part[len("observacao:"):] # Pega o resto da string após "Observacao:"
             # Se a observação tiver múltiplos argumentos, junte-os
@@ -85,16 +77,16 @@ async def logar_desempenho(ctx, membro: discord.Member, *, args):
             if len(obs_parts) > 1:
                 observacao = obs_parts[1].strip()
 
-    if pontuacao is None and erros is None and not observacao:
-        await ctx.send(f"Uso incorreto. Exemplo: `!logar @{ctx.author.display_name} pontuacao:9 erros:2 Observacao:Jogou muito bem!`")
+    if pontuacao is None and not observacao:
+        await ctx.send(f"Uso incorreto. Exemplo: `!logar @{ctx.author.display_name} pontuacao:9 Observacao:Jogou muito bem!`")
         return
 
     conn = connect_db()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO desempenho_logs (user_id, username, data, pontuacao, erros, observacao)
+        INSERT INTO desempenho_logs (user_id, username, data, pontuacao, observacao)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, username, data, pontuacao, erros, observacao))
+    ''', (user_id, username, data, pontuacao, observacao))
     conn.commit()
     conn.close()
 
@@ -106,8 +98,6 @@ async def logar_desempenho(ctx, membro: discord.Member, *, args):
     embed.add_field(name="Data", value=data, inline=True)
     if pontuacao is not None:
         embed.add_field(name="Pontuação", value=pontuacao, inline=True)
-    if erros is not None:
-        embed.add_field(name="Erros Básicos", value=erros, inline=True)
     if observacao:
         embed.add_field(name="Observação", value=observacao, inline=False)
     embed.set_footer(text=f"Registrado por: {ctx.author.display_name}")
@@ -124,7 +114,7 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
     cursor = conn.cursor()
     # MODIFICADO: Agora seleciona o ID também
     cursor.execute('''
-        SELECT id, data, pontuacao, erros, observacao
+        SELECT id, data, pontuacao, observacao
         FROM desempenho_logs
         WHERE user_id = ?
         ORDER BY id DESC
@@ -145,13 +135,11 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
 
     for log in reversed(logs):
         # MODIFICADO: Agora extrai o ID também
-        log_id, data, pontuacao, erros, observacao = log
+        log_id, data, pontuacao, observacao = log
         # MODIFICADO: Adiciona o ID na exibição
         log_text = f"**ID:** {log_id}\n**Data:** {data}\n"
         if pontuacao is not None:
             log_text += f"**Pontuação:** {pontuacao}\n"
-        if erros is not None:
-            log_text += f"**Erros:** {erros}\n"
         if observacao:
             log_text += f"**Obs:** {observacao}\n"
         log_text += "---"
