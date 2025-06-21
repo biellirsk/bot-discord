@@ -61,21 +61,27 @@ async def logar_desempenho(ctx, membro: discord.Member, *, args):
     pontuacao = None
     observacao = ""
 
-    # Analisar os argumentos (pontuacao:X erros:Y Observacao:Z)
-    parts = args.split()
-    for part in parts:
+    # --- INÍCIO DA LÓGICA CORRIGIDA PARA PROCESSAR ARGUMENTOS ---
+    # Dividir os argumentos pela palavra-chave "Observacao:" primeiro
+    obs_split = args.split("Observacao:", 1)
+    
+    # A parte antes da observação (pode conter pontuação)
+    main_args_str = obs_split[0].strip()
+    
+    # A parte da observação, se existir
+    if len(obs_split) > 1:
+        observacao = obs_split[1].strip()
+
+    # Agora, processar a parte principal dos argumentos para pontuação
+    main_parts = main_args_str.split()
+    for part in main_parts:
         if part.lower().startswith("pontuacao:"):
             try:
                 pontuacao = int(part.split(":")[1])
             except ValueError:
                 await ctx.send("Pontuação inválida. Use um número inteiro (ex: pontuacao:9).")
                 return
-        elif part.lower().startswith("observacao:"):
-            observacao = part[len("observacao:"):] # Pega o resto da string após "Observacao:"
-            # Se a observação tiver múltiplos argumentos, junte-os
-            obs_parts = args.split("Observacao:", 1)
-            if len(obs_parts) > 1:
-                observacao = obs_parts[1].strip()
+    # --- FIM DA LÓGICA CORRIGIDA ---
 
     if pontuacao is None and not observacao:
         await ctx.send(f"Uso incorreto. Exemplo: `!logar @{ctx.author.display_name} pontuacao:9 Observacao:Jogou muito bem!`")
@@ -85,7 +91,7 @@ async def logar_desempenho(ctx, membro: discord.Member, *, args):
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO desempenho_logs (user_id, username, data, pontuacao, observacao)
-        VALUES (?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
     ''', (user_id, username, data, pontuacao, observacao))
     conn.commit()
     conn.close()
@@ -112,7 +118,7 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
 
     conn = connect_db()
     cursor = conn.cursor()
-    # MODIFICADO: Agora seleciona o ID também
+    # MODIFICADO: Agora seleciona o ID também e removeu 'erros'
     cursor.execute('''
         SELECT id, data, pontuacao, observacao
         FROM desempenho_logs
@@ -134,9 +140,9 @@ async def ver_logs(ctx, membro: discord.Member, quantidade: int = 5):
     )
 
     for log in reversed(logs):
-        # MODIFICADO: Agora extrai o ID também
+        # MODIFICADO: Agora extrai o ID também e removeu 'erros'
         log_id, data, pontuacao, observacao = log
-        # MODIFICADO: Adiciona o ID na exibição
+        # MODIFICADO: Adiciona o ID na exibição e removeu 'erros'
         log_text = f"**ID:** {log_id}\n**Data:** {data}\n"
         if pontuacao is not None:
             log_text += f"**Pontuação:** {pontuacao}\n"
